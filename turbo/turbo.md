@@ -26,7 +26,7 @@ PIN | WIRE   | COMMAND
 8   | Black  | Gnd
 9   | -      |
 
-[Joystick connector](../docs/imgs/turbo/joystick_connector.png)
+![Joystick connector](../docs/imgs/turbo/joystick_connector.png)
 
 ### Arduino circuit
 
