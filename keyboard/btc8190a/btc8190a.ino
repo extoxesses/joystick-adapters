@@ -8,12 +8,13 @@
 
 // --- PS2 Keyboard properties --------
 #define DEBUG 0                    // 0 = False | 1 = True
-#define PS2_DATA_PIN 3             // IRQ enabled pin
-#define PS2_CLOCK_PIN 2            // IRQ enabled pin
+#define PS2_MOUSE_PIN 2            // IRQ enabled pin
+#define PS2_CLOCK_PIN 3            // IRQ enabled pin
+#define PS2_DATA_PIN 4             
 // --- CAPS usage properties ----------
 #define MAX_MODIFIERS_COMBO 5      // Normal combos don't require more than 3 caps. Choose 5 to be more resilient
 #define DEFAULT_DELAY 5            // Consider 5 millis as the time need to push a cap
-#define MAX_COMBO_DELTA_MILLIS 150 // Empiric value that allows to perform a combo without introducint to much latency on single cap push
+#define MAX_COMBO_DELTA_MILLIS 300 // Empiric value that allows to perform a combo without introducint to much latency on single cap push
 
 // --- Skretch properties
 PS2KeyAdvanced ps_2_in;
@@ -24,10 +25,39 @@ short modifiers_idx = -1;
 unsigned long last_mod_millis = -1;
 uint8_t lock_status = 0;
 
+bool mouse_pressed = false;
+
+// --- Setup -------------
+
+void ps2KeyboardSetup() {
+  ps_2_in.begin(PS2_DATA_PIN, PS2_CLOCK_PIN);
+  ps_2_in.setNoBreak(1);
+  ps_2_in.setNoRepeat(1);
+  ps_2_in.typematic(0, 1);
+  ps_2_in.resetKey();
+  ps_2_in.read();
+
+  verifyPs2KeyboardConnection();
+  keymap.selectMap((char *) "US");
+}
+
+void mouseSetup() {
+  attachInterrupt(digitalPinToInterrupt(PS2_MOUSE_PIN), mousePress, FALLING);
+  pinMode(10, OUTPUT);
+  digitalWrite(10, LOW);
+}
+
 // --- Remapping ---------
 
 void mapAndSend(uint16_t cap) {
   uint16_t translate;
+
+  if (4161 <= cap && cap <= 4186) {
+    cap -= 4096;  // Converts capitol letter into lower case letter (for capslock management)
+  } else if (12353 <= cap && cap <= 12378) {
+    cap -= 12288; // Converts capitol letter into lower case letter (for capslock management)
+  }
+
   switch (cap) {
     case 6:
       translate = KEY_PAUSE;
@@ -310,15 +340,19 @@ void keyPress(uint16_t cap, unsigned long ms) {
   Keyboard.release(cap);
 }
 
-void mousePress(uint16_t button, unsigned long ms) {
+void mousePress() {
   #if DEBUG
     Serial.print("Mouse click: ");
-    Serial.println(button);
+    Serial.println(mouse_pressed);
   #endif
 
-  Mouse.press(button);
-  delay(ms);
-  Mouse.release(button);
+  if (mouse_pressed) {
+    Mouse.release(MOUSE_MIDDLE);
+  } else {
+    Mouse.press(MOUSE_MIDDLE);
+  }
+  mouse_pressed = !mouse_pressed;
+  delay(250);
 }
 
 void releaseAllModifiers() {
@@ -389,19 +423,13 @@ void setup() {
   #endif
 
   // Configure the input keyboard
-  ps_2_in.begin(PS2_DATA_PIN, PS2_CLOCK_PIN);
-  ps_2_in.setNoBreak(1);
-  ps_2_in.setNoRepeat(1);
-  ps_2_in.typematic(0, 1);
-  ps_2_in.resetKey();
-  ps_2_in.read();
-
-  verifyPs2KeyboardConnection();
-  keymap.selectMap((char *)"US");
+  ps2KeyboardSetup();
 
   // Configure the output interface
+  //mouseSetup();
+
   Keyboard.begin();
-  Mouse.begin();
+  //Mouse.begin();
   delay(10);
 }
 
